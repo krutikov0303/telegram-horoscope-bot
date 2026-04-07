@@ -11,7 +11,8 @@ import os
 import re
 import sys
 import time
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 import google.generativeai as genai
 import requests
@@ -29,6 +30,16 @@ _DEFAULT_POST_FOOTER = "🔮 Щоденний гороскоп тут\n👉 @ua_
 def _post_footer() -> str:
     custom = (os.environ.get("HOROSCOPE_POST_FOOTER") or "").strip()
     return custom if custom else _DEFAULT_POST_FOOTER
+
+
+def _calendar_date_for_posts() -> date:
+    """Календарна дата для обкладинки та промпту (не UTC на раннері, а ваш часовий пояс)."""
+    tz_name = (os.environ.get("HOROSCOPE_TZ") or "Europe/Kyiv").strip()
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        tz = ZoneInfo("Europe/Kyiv")
+    return datetime.now(tz).date()
 
 # Заголовки знаків у фіксованому порядку (як у прикладі користувача)
 _SIGN_HEADERS_RU = """Овен 🔥
@@ -122,7 +133,7 @@ def _extract_gemini_text(response) -> str:
 def generate_text_one_model(api_key: str, model_name: str, lang: str) -> str:
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel(model_name)
-    today = date.today()
+    today = _calendar_date_for_posts()
     prompt = _prompt(lang, today)
     generation_config = genai.GenerationConfig(
         max_output_tokens=8192,
@@ -270,7 +281,7 @@ def main() -> int:
                 "yes",
             )
             if not skip_cover:
-                cover = render_cover_png(date.today())
+                cover = render_cover_png(_calendar_date_for_posts())
                 send_photo_png(token, chat_id, cover)
                 time.sleep(0.4)
             send_telegram(token, chat_id, body)
