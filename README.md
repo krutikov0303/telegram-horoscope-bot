@@ -40,7 +40,7 @@ python scripts/publish_horoscope.py
    - `TELEGRAM_CHAT_ID`
 3. Опційно: **Variables** → `HOROSCOPE_LANG` = `uk` або `ru` (якщо не задано, скрипт використовує `uk`).
 4. Опційно: **Variables** → `GEMINI_MODEL` — наприклад `gemini-2.5-flash` ([список моделей](https://ai.google.dev/gemini-api/docs/models)). Якщо не задано, скрипт перебирає `gemini-2.5-flash` → `gemini-2.5-flash-lite` → `gemini-2.0-flash`. Старі `gemini-1.5-*` у API часто повертають **404**.
-5. Розклад у `.github/workflows/daily_horoscope.yml` зараз **06:00 UTC** (приблизно ранок за київським часом; підлаштуйте `cron` під себе). GitHub використовує лише UTC.
+5. Розклад у `.github/workflows/daily_horoscope.yml` зараз **06:27 UTC** ≈ **08:27 за Києвом** (UTC+2). Змінити час можна лише через `cron` у UTC. У GitHub Actions старт інколи запізнюється на кілька хвилин.
 
 Ручний запуск: вкладка **Actions** → workflow **Daily horoscope** → **Run workflow**.
 

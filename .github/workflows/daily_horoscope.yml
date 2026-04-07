@@ -2,8 +2,9 @@ name: Daily horoscope
 
 on:
   schedule:
-    # 06:00 UTC ≈ 08:00 Europe/Kyiv (UTC+2). Подстройте под желаемое локальное время.
-    - cron: "0 6 * * *"
+    # 06:27 UTC = 08:27 Europe/Kyiv (офіційний час України зараз UTC+2, без переведення годинника).
+    # GitHub приймає лише UTC; затримка старту cron на Actions інколи до кількох хвилин — це норма.
+    - cron: "27 6 * * *"
   workflow_dispatch:
 
 jobs:
