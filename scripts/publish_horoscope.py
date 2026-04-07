@@ -35,14 +35,60 @@ def _prompt(lang: str, today: date) -> str:
     )
 
 
-def generate_text(api_key: str, model_name: str, lang: str) -> str:
+def _extract_gemini_text(response) -> str:
+    """Gemini иногда не даёт .text (блок, пустой ответ) — разбираем явно."""
+    if getattr(response, "prompt_feedback", None) and getattr(
+        response.prompt_feedback, "block_reason", None
+    ):
+        br = response.prompt_feedback.block_reason
+        raise RuntimeError(f"Gemini blocked the prompt: {br}")
+    if not response.candidates:
+        raise RuntimeError("Gemini returned no candidates (empty or blocked)")
+    parts: list[str] = []
+    for cand in response.candidates:
+        content = getattr(cand, "content", None)
+        if not content:
+            continue
+        for part in getattr(content, "parts", []) or []:
+            t = getattr(part, "text", None)
+            if t:
+                parts.append(t)
+    text = "".join(parts).strip()
+    if not text:
+        try:
+            text = (response.text or "").strip()
+        except (ValueError, AttributeError) as e:
+            raise RuntimeError(f"Could not read Gemini text: {e}") from e
+    if not text:
+        raise RuntimeError("Empty text from Gemini")
+    return text
+
+
+def generate_text_one_model(api_key: str, model_name: str, lang: str) -> str:
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel(model_name)
     today = date.today()
-    text = model.generate_content(_prompt(lang, today)).text
-    if not text or not text.strip():
-        raise RuntimeError("Empty response from Gemini")
-    return text.strip()
+    prompt = _prompt(lang, today)
+    response = model.generate_content(prompt)
+    return _extract_gemini_text(response)
+
+
+def generate_text_with_fallback(api_key: str, lang: str) -> str:
+    preferred = os.environ.get("GEMINI_MODEL")
+    models: list[str] = []
+    if preferred:
+        models.append(preferred)
+    for m in ("gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-8b"):
+        if m not in models:
+            models.append(m)
+    last_err: Exception | None = None
+    for model_name in models:
+        try:
+            return generate_text_one_model(api_key, model_name, lang)
+        except Exception as e:
+            last_err = e
+            print(f"Gemini model {model_name}: {e}", file=sys.stderr)
+    raise last_err or RuntimeError("All Gemini models failed")
 
 
 def send_telegram(token: str, chat_id: str, text: str) -> None:
@@ -64,8 +110,6 @@ def main() -> int:
     if lang not in ("uk", "ru"):
         print("HOROSCOPE_LANG must be uk or ru", file=sys.stderr)
         return 2
-    model_name = os.environ.get("GEMINI_MODEL") or "gemini-2.0-flash"
-
     if not api_key or not token or not chat_id:
         print(
             "Set GEMINI_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID",
@@ -76,7 +120,7 @@ def main() -> int:
     last_err: Exception | None = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            body = generate_text(api_key, model_name, lang)
+            body = generate_text_with_fallback(api_key, lang)
             send_telegram(token, chat_id, body)
             print("OK: posted to Telegram")
             return 0
