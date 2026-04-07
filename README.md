@@ -37,7 +37,7 @@ python scripts/publish_horoscope.py
    - `TELEGRAM_BOT_TOKEN`
    - `TELEGRAM_CHAT_ID`
 3. Опційно: **Variables** → `HOROSCOPE_LANG` = `uk` або `ru` (якщо не задано, скрипт використовує `uk`).
-4. Опційно: **Variables** → `GEMINI_MODEL` — наприклад `gemini-1.5-flash`. Якщо нічого не задано, скрипт сам пробує `gemini-1.5-flash`, потім `gemini-1.5-flash-8b`. **Не варто** ставити `gemini-2.0-flash`, якщо в консолі Google бачите **quota / limit: 0** для цієї моделі на безкоштовному тарифі.
+4. Опційно: **Variables** → `GEMINI_MODEL` — наприклад `gemini-2.5-flash` ([список моделей](https://ai.google.dev/gemini-api/docs/models)). Якщо не задано, скрипт перебирає `gemini-2.5-flash` → `gemini-2.5-flash-lite` → `gemini-2.0-flash`. Старі `gemini-1.5-*` у API часто повертають **404**.
 5. Розклад у `.github/workflows/daily_horoscope.yml` зараз **06:00 UTC** (приблизно ранок за київським часом; підлаштуйте `cron` під себе). GitHub використовує лише UTC.
 
 Ручний запуск: вкладка **Actions** → workflow **Daily horoscope** → **Run workflow**.
@@ -46,10 +46,14 @@ python scripts/publish_horoscope.py
 
 Cron у GitHub — **тільки UTC**. Для сталого «локального» часу перерахуйте годину в UTC або запускайте двічі на добу під літній/зимовий час (якщо це ще актуально для вашого календаря).
 
+## Помилка 404 «model … is not found»
+
+Модель зняли або перейменували. Подивіться [актуальні id](https://ai.google.dev/gemini-api/docs/models) і задайте **Variables** → `GEMINI_MODEL`, наприклад `gemini-2.5-flash`.
+
 ## Помилка 429 / «quota exceeded» / `limit: 0`
 
 Це **ліміт Google Gemini** на безкоштовному API (або денна квота вичерпана, або для обраної моделі квота **0**).
 
 - Перевірте [квоти](https://ai.google.dev/gemini-api/docs/rate-limits) і [використання](https://ai.dev/rate-limit) для свого ключа / проєкту.
-- У **Repository variables** приберіть `GEMINI_MODEL`, якщо там було `gemini-2.0-flash`, або явно задайте `gemini-1.5-flash`.
+- Спробуйте іншу модель через `GEMINI_MODEL` (наприклад `gemini-2.5-flash-lite`), інколи ліміти рахуються окремо.
 - Зачекайте до наступного дня (денні ліміти) або увімкніть біллінг у Google Cloud для цього API, якщо потрібно стабільніше.

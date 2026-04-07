@@ -88,15 +88,19 @@ def _sleep_if_rate_limited(err: Exception) -> None:
 
 def generate_text_with_fallback(api_key: str, lang: str) -> str:
     """
-    За замовчуванням тільки 1.5-flash: у багатьох проєктів на free tier квота на 2.0 = 0.
-    Щоб увімкнути 2.0 — задайте змінну GEMINI_MODEL=gemini-2.0-flash (і переконайтесь у квоті в Google AI).
+    Актуальні імена моделей (Google AI): див. https://ai.google.dev/gemini-api/docs/models
+    Старі gemini-1.5-* часто дають 404. За замовчуванням — 2.5, потім lite, потім 2.0.
+    Свою модель можна задати через GEMINI_MODEL.
     """
     preferred = (os.environ.get("GEMINI_MODEL") or "").strip()
     models: list[str] = []
     if preferred:
         models.append(preferred)
-    # Без 2.0 у списку за замовчуванням — уникнути limit: 0 на free tier
-    for m in ("gemini-1.5-flash", "gemini-1.5-flash-8b"):
+    for m in (
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-2.0-flash",
+    ):
         if m not in models:
             models.append(m)
     last_err: Exception | None = None
