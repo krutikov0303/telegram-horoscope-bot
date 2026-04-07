@@ -1,0 +1,28 @@
+name: Daily horoscope
+
+on:
+  schedule:
+    # 06:00 UTC ≈ 08:00 Europe/Kyiv (UTC+2). Подстройте под желаемое локальное время.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Publish
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          HOROSCOPE_LANG: ${{ vars.HOROSCOPE_LANG }}
+        run: python scripts/publish_horoscope.py
