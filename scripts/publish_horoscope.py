@@ -18,21 +18,65 @@ import requests
 
 MAX_RETRIES = 3
 RETRY_DELAY_SEC = 5
+TELEGRAM_MAX_MESSAGE = 4096
+
+# Заголовки знаків у фіксованому порядку (як у прикладі користувача)
+_SIGN_HEADERS_RU = """Овен 🔥
+Телец 🐂
+Близнецы 🌬️
+Рак 🦀
+Лев 🦁
+Дева 🌾
+Весы ⚖️
+Скорпион 🦂
+Стрелец 🏹
+Козерог 🐐
+Водолей 🌊
+Рыбы 🐟"""
+
+_SIGN_HEADERS_UK = """Овен 🔥
+Телець 🐂
+Близнюки 🌬️
+Рак 🦀
+Лев 🦁
+Діва 🌾
+Терези ⚖️
+Скорпіон 🦂
+Стрілець 🏹
+Козеріг 🐐
+Водолій 🌊
+Риби 🐟"""
 
 
 def _prompt(lang: str, today: date) -> str:
     if lang == "ru":
         return (
-            f"Сегодня {today.isoformat()}. Напиши короткий развлекательный гороскоп на день "
-            "для широкой аудитории: ровно 1–2 предложения, нейтральный доброжелательный тон, "
-            "без категоричных предсказаний и медицинских/финансовых советов. "
-            "Только текст поста, без заголовков и хэштегов."
+            f"Дата: {today.isoformat()}.\n\n"
+            "Напиши развлекательный гороскоп на день для ВСЕХ 12 знаков зодиака.\n\n"
+            "Формат строго такой:\n"
+            "- Каждый знак — отдельный блок.\n"
+            "- Первая строка блока: ровно одна строка «Название эмодзи» из списка ниже (скопируй название и эмодзи как есть).\n"
+            "- Со следующей строки: 1–2 предложения гороскопа для этого знака (живой тон, лёгкая ирония допустима).\n"
+            "- Между блоками — одна пустая строка.\n"
+            "- Порядок знаков — как в списке, сверху вниз.\n"
+            "- Без вступления перед первым знаком, без общего заголовка поста, без нумерации «1.», без Markdown (# **), без хэштегов.\n"
+            "- Не давай медицинских, юридических и финансовых советов; избегай категоричных предсказваний.\n\n"
+            "Используй ТОЛЬКО эти строки-заголовки (по одной на знак, в этом порядке):\n\n"
+            f"{_SIGN_HEADERS_RU}\n"
         )
     return (
-        f"Сьогодні {today.isoformat()}. Напиши короткий розважальний гороскоп на день "
-        "для широкої аудиторії: рівно 1–2 речення, нейтральний доброзичливий тон, "
-        "без категоричних передбачень і медичних/фінансових порад. "
-        "Лише текст поста, без заголовків і хештегів."
+        f"Дата: {today.isoformat()}.\n\n"
+        "Напиши розважальний гороскоп на день для УСІХ 12 знаків зодіаку.\n\n"
+        "Формат строго такий:\n"
+        "- Кожен знак — окремий блок.\n"
+        "- Перший рядок блоку: рівно один рядок «Назва емодзі» зі списку нижче (скопіюй назву та емодзі як є).\n"
+        "- З наступного рядка: 1–2 речення гороскопу для цього знаку (живий тон, легка іронія доречна).\n"
+        "- Між блоками — один порожній рядок.\n"
+        "- Порядок знаків — як у списку, зверху вниз.\n"
+        "- Без вступу перед першим знаком, без заголовка всього посту, без нумерації «1.», без Markdown (# **), без хештегів.\n"
+        "- Не давай медичних, юридичних і фінансових порад; уникай категоричних передбачень.\n\n"
+        "Використовуй ЛИШЕ ці рядки-заголовки (по одному на знак, у цьому порядку):\n\n"
+        f"{_SIGN_HEADERS_UK}\n"
     )
 
 
@@ -70,7 +114,14 @@ def generate_text_one_model(api_key: str, model_name: str, lang: str) -> str:
     model = genai.GenerativeModel(model_name)
     today = date.today()
     prompt = _prompt(lang, today)
-    response = model.generate_content(prompt)
+    generation_config = genai.GenerationConfig(
+        max_output_tokens=8192,
+        temperature=0.85,
+    )
+    response = model.generate_content(
+        prompt,
+        generation_config=generation_config,
+    )
     return _extract_gemini_text(response)
 
 
@@ -114,7 +165,7 @@ def generate_text_with_fallback(api_key: str, lang: str) -> str:
     raise last_err or RuntimeError("All Gemini models failed")
 
 
-def send_telegram(token: str, chat_id: str, text: str) -> None:
+def _send_one_message(token: str, chat_id: str, text: str) -> None:
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     r = requests.post(
         url,
@@ -123,6 +174,38 @@ def send_telegram(token: str, chat_id: str, text: str) -> None:
     )
     if not r.ok:
         raise RuntimeError(f"Telegram API {r.status_code}: {r.text[:500]}")
+
+
+def send_telegram(token: str, chat_id: str, text: str) -> None:
+    """Telegram обмежує одне повідомлення ~4096 символів — розбиваємо за блоками."""
+    text = text.strip()
+    if len(text) <= TELEGRAM_MAX_MESSAGE:
+        _send_one_message(token, chat_id, text)
+        return
+    parts: list[str] = []
+    current = ""
+    for block in text.split("\n\n"):
+        block = block.strip()
+        if not block:
+            continue
+        candidate = current + ("\n\n" if current else "") + block
+        if len(candidate) <= TELEGRAM_MAX_MESSAGE:
+            current = candidate
+        else:
+            if current:
+                parts.append(current)
+            if len(block) > TELEGRAM_MAX_MESSAGE:
+                for i in range(0, len(block), TELEGRAM_MAX_MESSAGE - 100):
+                    parts.append(block[i : i + TELEGRAM_MAX_MESSAGE - 100])
+                current = ""
+            else:
+                current = block
+    if current:
+        parts.append(current)
+    for i, chunk in enumerate(parts):
+        _send_one_message(token, chat_id, chunk)
+        if i < len(parts) - 1:
+            time.sleep(0.35)
 
 
 def main() -> int:
