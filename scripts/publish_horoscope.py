@@ -16,6 +16,8 @@ from datetime import date
 import google.generativeai as genai
 import requests
 
+from horoscope_cover import render_cover_png
+
 MAX_RETRIES = 3
 RETRY_DELAY_SEC = 5
 TELEGRAM_MAX_MESSAGE = 4096
@@ -165,6 +167,18 @@ def generate_text_with_fallback(api_key: str, lang: str) -> str:
     raise last_err or RuntimeError("All Gemini models failed")
 
 
+def send_photo_png(token: str, chat_id: str, png_bytes: bytes) -> None:
+    url = f"https://api.telegram.org/bot{token}/sendPhoto"
+    r = requests.post(
+        url,
+        data={"chat_id": chat_id},
+        files={"photo": ("horoscope_cover.png", png_bytes, "image/png")},
+        timeout=120,
+    )
+    if not r.ok:
+        raise RuntimeError(f"Telegram sendPhoto {r.status_code}: {r.text[:500]}")
+
+
 def _send_one_message(token: str, chat_id: str, text: str) -> None:
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     r = requests.post(
@@ -227,6 +241,15 @@ def main() -> int:
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             body = generate_text_with_fallback(api_key, lang)
+            skip_cover = (os.environ.get("HOROSCOPE_SKIP_COVER") or "").strip().lower() in (
+                "1",
+                "true",
+                "yes",
+            )
+            if not skip_cover:
+                cover = render_cover_png(lang, date.today())
+                send_photo_png(token, chat_id, cover)
+                time.sleep(0.4)
             send_telegram(token, chat_id, body)
             print("OK: posted to Telegram")
             return 0

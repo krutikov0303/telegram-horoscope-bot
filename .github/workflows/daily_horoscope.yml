@@ -30,4 +30,5 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           HOROSCOPE_LANG: ${{ vars.HOROSCOPE_LANG }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          HOROSCOPE_SKIP_COVER: ${{ vars.HOROSCOPE_SKIP_COVER }}
         run: python scripts/publish_horoscope.py
