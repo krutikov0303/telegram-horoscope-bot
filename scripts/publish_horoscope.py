@@ -8,6 +8,7 @@ Optional: HOROSCOPE_LANG=uk|ru (default uk), GEMINI_MODEL
 from __future__ import annotations
 
 import os
+import re
 import sys
 import time
 from datetime import date
@@ -73,12 +74,29 @@ def generate_text_one_model(api_key: str, model_name: str, lang: str) -> str:
     return _extract_gemini_text(response)
 
 
+def _sleep_if_rate_limited(err: Exception) -> None:
+    """Після 429 API часто просить почекати (retry in Ns)."""
+    s = str(err)
+    if "429" not in s and "quota" not in s.lower() and "Resource exhausted" not in s:
+        return
+    m = re.search(r"retry in ([\d.]+)\s*s", s, re.I)
+    if m:
+        sec = min(120.0, float(m.group(1)) + 2.0)
+        print(f"Waiting {sec:.0f}s (rate limit / quota hint)...", file=sys.stderr)
+        time.sleep(sec)
+
+
 def generate_text_with_fallback(api_key: str, lang: str) -> str:
-    preferred = os.environ.get("GEMINI_MODEL")
+    """
+    За замовчуванням тільки 1.5-flash: у багатьох проєктів на free tier квота на 2.0 = 0.
+    Щоб увімкнути 2.0 — задайте змінну GEMINI_MODEL=gemini-2.0-flash (і переконайтесь у квоті в Google AI).
+    """
+    preferred = (os.environ.get("GEMINI_MODEL") or "").strip()
     models: list[str] = []
     if preferred:
         models.append(preferred)
-    for m in ("gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-8b"):
+    # Без 2.0 у списку за замовчуванням — уникнути limit: 0 на free tier
+    for m in ("gemini-1.5-flash", "gemini-1.5-flash-8b"):
         if m not in models:
             models.append(m)
     last_err: Exception | None = None
@@ -88,6 +106,7 @@ def generate_text_with_fallback(api_key: str, lang: str) -> str:
         except Exception as e:
             last_err = e
             print(f"Gemini model {model_name}: {e}", file=sys.stderr)
+            _sleep_if_rate_limited(e)
     raise last_err or RuntimeError("All Gemini models failed")
 
 
@@ -128,6 +147,7 @@ def main() -> int:
             last_err = e
             print(f"Attempt {attempt}/{MAX_RETRIES}: {e}", file=sys.stderr)
             if attempt < MAX_RETRIES:
+                _sleep_if_rate_limited(e)
                 time.sleep(RETRY_DELAY_SEC)
 
     print(f"Failed: {last_err}", file=sys.stderr)

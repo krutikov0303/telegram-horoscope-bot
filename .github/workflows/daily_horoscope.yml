@@ -25,4 +25,5 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           HOROSCOPE_LANG: ${{ vars.HOROSCOPE_LANG }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
         run: python scripts/publish_horoscope.py
