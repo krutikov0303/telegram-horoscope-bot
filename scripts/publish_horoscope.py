@@ -247,7 +247,7 @@ def main() -> int:
                 "yes",
             )
             if not skip_cover:
-                cover = render_cover_png(lang, date.today())
+                cover = render_cover_png(date.today())
                 send_photo_png(token, chat_id, cover)
                 time.sleep(0.4)
             send_telegram(token, chat_id, body)

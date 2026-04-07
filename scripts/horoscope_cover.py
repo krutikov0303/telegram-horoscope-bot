@@ -1,6 +1,6 @@
 """
-Квадратна обкладинка «як на прикладі»: кремовий фон, темно-зелений текст і клевер.
-Дата: «Гороскоп на 8 квітня» / «Гороскоп на 8 апреля».
+Квадратна обкладинка: кремовий фон, темно-зелений текст і клевер.
+Підпис завжди українською: «Гороскоп на 8 квітня» (незалежно від HOROSCOPE_LANG).
 """
 
 from __future__ import annotations
@@ -29,25 +29,7 @@ _UA_MONTHS_GEN = (
     "грудня",
 )
 
-_RU_MONTHS_GEN = (
-    "января",
-    "февраля",
-    "марта",
-    "апреля",
-    "мая",
-    "июня",
-    "июля",
-    "августа",
-    "сентября",
-    "октября",
-    "ноября",
-    "декабря",
-)
-
-
-def cover_title_for_date(lang: str, d: date) -> str:
-    if lang == "ru":
-        return f"Гороскоп на {d.day} {_RU_MONTHS_GEN[d.month - 1]}"
+def cover_title_for_date(d: date) -> str:
     return f"Гороскоп на {d.day} {_UA_MONTHS_GEN[d.month - 1]}"
 
 
@@ -106,8 +88,8 @@ def _fit_title_font(text: str, max_width: int, max_size: int, min_size: int) -> 
     return _load_serif_font(min_size)
 
 
-def render_cover_png(lang: str, d: date) -> bytes:
-    title = cover_title_for_date(lang, d)
+def render_cover_png(d: date) -> bytes:
+    title = cover_title_for_date(d)
     img = Image.new("RGB", (SIZE, SIZE), BG)
     draw = ImageDraw.Draw(img)
     _draw_clover(draw, SIZE // 2, SIZE * 0.22, scale=1.15)
