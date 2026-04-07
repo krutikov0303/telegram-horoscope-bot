@@ -22,6 +22,14 @@ MAX_RETRIES = 3
 RETRY_DELAY_SEC = 5
 TELEGRAM_MAX_MESSAGE = 4096
 
+# У кінці кожної публікації (після гороскопу). Можна перевизначити змінною HOROSCOPE_POST_FOOTER.
+_DEFAULT_POST_FOOTER = "🔮 Щоденний гороскоп тут\n👉 @ua_goroskop"
+
+
+def _post_footer() -> str:
+    custom = (os.environ.get("HOROSCOPE_POST_FOOTER") or "").strip()
+    return custom if custom else _DEFAULT_POST_FOOTER
+
 # Заголовки знаків у фіксованому порядку (як у прикладі користувача)
 _SIGN_HEADERS_RU = """Овен 🔥
 Телец 🐂
@@ -190,12 +198,11 @@ def _send_one_message(token: str, chat_id: str, text: str) -> None:
         raise RuntimeError(f"Telegram API {r.status_code}: {r.text[:500]}")
 
 
-def send_telegram(token: str, chat_id: str, text: str) -> None:
-    """Telegram обмежує одне повідомлення ~4096 символів — розбиваємо за блоками."""
+def _split_long_message(text: str) -> list[str]:
+    """Розбиття основного тексту без футера."""
     text = text.strip()
     if len(text) <= TELEGRAM_MAX_MESSAGE:
-        _send_one_message(token, chat_id, text)
-        return
+        return [text]
     parts: list[str] = []
     current = ""
     for block in text.split("\n\n"):
@@ -216,6 +223,22 @@ def send_telegram(token: str, chat_id: str, text: str) -> None:
                 current = block
     if current:
         parts.append(current)
+    return parts
+
+
+def send_telegram(token: str, chat_id: str, text: str) -> None:
+    """Telegram ~4096 символів; футер завжди внизу (в останньому повідомленні)."""
+    footer = _post_footer()
+    sep = "\n\n"
+    parts = _split_long_message(text)
+    if not parts:
+        parts = [footer]
+    else:
+        suffix = sep + footer
+        if len(parts[-1]) + len(suffix) <= TELEGRAM_MAX_MESSAGE:
+            parts[-1] = parts[-1] + suffix
+        else:
+            parts.append(footer)
     for i, chunk in enumerate(parts):
         _send_one_message(token, chat_id, chunk)
         if i < len(parts) - 1:

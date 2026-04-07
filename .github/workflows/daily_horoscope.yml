@@ -31,4 +31,5 @@ jobs:
           HOROSCOPE_LANG: ${{ vars.HOROSCOPE_LANG }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           HOROSCOPE_SKIP_COVER: ${{ vars.HOROSCOPE_SKIP_COVER }}
+          HOROSCOPE_POST_FOOTER: ${{ vars.HOROSCOPE_POST_FOOTER }}
         run: python scripts/publish_horoscope.py
