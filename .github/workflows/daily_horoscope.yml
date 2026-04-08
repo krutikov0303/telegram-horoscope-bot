@@ -1,16 +1,15 @@
-name: Daily horoscope
+﻿name: Daily horoscope
 
 on:
   schedule:
-    # 05:27 UTC = 08:27 Europe/Kyiv (����� ���, UTC+3). ������ ��� 08:27 ����� 06:27 UTC.
-    # GitHub приймає лише UTC; затримка старту cron на Actions інколи до кількох хвилин — це норма.
+    # 05:27 UTC ~= 08:27 Europe/Kyiv during summer time (UTC+3).
+    # GitHub cron uses UTC only. In winter (UTC+2), use 06:27 UTC for 08:27 Kyiv.
     - cron: "27 5 * * *"
   workflow_dispatch:
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    # Прибирає попередження про Node 20 у checkout/setup-python (не пов’язано з Python-скриптом)
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
