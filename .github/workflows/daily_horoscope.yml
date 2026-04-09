@@ -2,9 +2,8 @@
 
 on:
   schedule:
-    # 05:27 UTC ~= 08:27 Europe/Kyiv during summer time (UTC+3).
-    # GitHub cron uses UTC only. In winter (UTC+2), use 06:27 UTC for 08:27 Kyiv.
-    - cron: "27 5 * * *"
+    # Run often; exact 08:27 Europe/Kyiv gating is enforced in Python.
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -19,6 +18,20 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Compute Kyiv date
+        id: kyiv_date
+        shell: bash
+        run: echo "date=$(TZ=Europe/Kyiv date +%F)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore posted state
+        if: github.event_name == 'schedule'
+        uses: actions/cache/restore@v4
+        with:
+          path: .state/posted_dates.txt
+          key: posted-${{ steps.kyiv_date.outputs.date }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            posted-${{ steps.kyiv_date.outputs.date }}-
+
       - name: Install deps
         run: pip install -r requirements.txt
 
@@ -32,4 +45,17 @@ jobs:
           HOROSCOPE_SKIP_COVER: ${{ vars.HOROSCOPE_SKIP_COVER }}
           HOROSCOPE_POST_FOOTER: ${{ vars.HOROSCOPE_POST_FOOTER }}
           HOROSCOPE_TZ: ${{ vars.HOROSCOPE_TZ }}
+          HOROSCOPE_ENFORCE_TIME_GATE: ${{ github.event_name == 'schedule' && '1' || '0' }}
+          HOROSCOPE_TARGET_HOUR: "8"
+          HOROSCOPE_TARGET_MINUTE: "27"
+          HOROSCOPE_POST_WINDOW_MINUTES: "10"
+          HOROSCOPE_STATE_PATH: .state/posted_dates.txt
+          HOROSCOPE_POSTED_FLAG_PATH: .state/posted.flag
         run: python scripts/publish_horoscope.py
+
+      - name: Save posted state
+        if: github.event_name == 'schedule' && hashFiles('.state/posted.flag') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: .state/posted_dates.txt
+          key: posted-${{ steps.kyiv_date.outputs.date }}-${{ github.run_id }}-${{ github.run_attempt }}

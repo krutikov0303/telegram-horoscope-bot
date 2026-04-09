@@ -11,7 +11,8 @@ import os
 import re
 import sys
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import google.generativeai as genai
@@ -24,12 +25,15 @@ RETRY_DELAY_SEC = 5
 TELEGRAM_MAX_MESSAGE = 4096
 
 # У кінці кожної публікації (після гороскопу). Можна перевизначити змінною HOROSCOPE_POST_FOOTER.
-_DEFAULT_POST_FOOTER = "🔮 Щоденний гороскоп тут\n👉 @ua_goroskop"
+_DEFAULT_POST_FOOTER = "🔮 Щоденний гороскоп тут\n👉 @goroskop_dnya_ua"
 
 
 def _post_footer() -> str:
     custom = (os.environ.get("HOROSCOPE_POST_FOOTER") or "").strip()
-    return custom if custom else _DEFAULT_POST_FOOTER
+    if not custom:
+        return _DEFAULT_POST_FOOTER
+    # Якщо в GitHub Variables лишився старий @ — підміняємо на новий канал
+    return custom.replace("@ua_goroskop", "@goroskop_dnya_ua")
 
 
 def _calendar_date_for_posts() -> date:
@@ -40,6 +44,47 @@ def _calendar_date_for_posts() -> date:
     except Exception:
         tz = ZoneInfo("Europe/Kyiv")
     return datetime.now(tz).date()
+
+
+def _now_in_posts_tz() -> datetime:
+    tz_name = (os.environ.get("HOROSCOPE_TZ") or "Europe/Kyiv").strip()
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        tz = ZoneInfo("Europe/Kyiv")
+    return datetime.now(tz)
+
+
+def _is_truthy(value: str | None) -> bool:
+    return (value or "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _load_posted_dates(state_path: Path) -> set[str]:
+    if not state_path.exists():
+        return set()
+    try:
+        return {
+            line.strip()
+            for line in state_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        }
+    except Exception:
+        return set()
+
+
+def _save_posted_dates(state_path: Path, dates: set[str]) -> None:
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    body = "\n".join(sorted(dates)) + "\n"
+    state_path.write_text(body, encoding="utf-8")
+
+
+def _mark_posted_flag() -> None:
+    flag_path_raw = (os.environ.get("HOROSCOPE_POSTED_FLAG_PATH") or "").strip()
+    if not flag_path_raw:
+        return
+    flag_path = Path(flag_path_raw)
+    flag_path.parent.mkdir(parents=True, exist_ok=True)
+    flag_path.write_text("1\n", encoding="utf-8")
 
 # Заголовки знаків у фіксованому порядку (як у прикладі користувача)
 _SIGN_HEADERS_RU = """Овен 🔥
@@ -271,6 +316,38 @@ def main() -> int:
         )
         return 2
 
+    enforce_time_gate = _is_truthy(os.environ.get("HOROSCOPE_ENFORCE_TIME_GATE"))
+    target_hour = int((os.environ.get("HOROSCOPE_TARGET_HOUR") or "8").strip())
+    target_minute = int((os.environ.get("HOROSCOPE_TARGET_MINUTE") or "27").strip())
+    post_window_minutes = int((os.environ.get("HOROSCOPE_POST_WINDOW_MINUTES") or "10").strip())
+
+    now_local = _now_in_posts_tz()
+    today_local = now_local.date()
+    target_local = now_local.replace(
+        hour=target_hour,
+        minute=target_minute,
+        second=0,
+        microsecond=0,
+    )
+    window_end = target_local + timedelta(minutes=post_window_minutes)
+
+    state_path = Path((os.environ.get("HOROSCOPE_STATE_PATH") or ".state/posted_dates.txt").strip())
+    posted_dates = _load_posted_dates(state_path)
+    today_key = today_local.isoformat()
+
+    if enforce_time_gate and not (target_local <= now_local < window_end):
+        print(
+            (
+                f"SKIP: now={now_local.strftime('%Y-%m-%d %H:%M:%S %Z')}, "
+                f"target={target_local.strftime('%H:%M')}, window={post_window_minutes}m"
+            )
+        )
+        return 0
+
+    if enforce_time_gate and today_key in posted_dates:
+        print(f"SKIP: already posted for {today_key}")
+        return 0
+
     last_err: Exception | None = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
@@ -285,6 +362,9 @@ def main() -> int:
                 send_photo_png(token, chat_id, cover)
                 time.sleep(0.4)
             send_telegram(token, chat_id, body)
+            posted_dates.add(today_key)
+            _save_posted_dates(state_path, posted_dates)
+            _mark_posted_flag()
             print("OK: posted to Telegram")
             return 0
         except Exception as e:
