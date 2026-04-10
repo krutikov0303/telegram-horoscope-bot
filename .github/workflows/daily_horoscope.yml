@@ -44,11 +44,11 @@ jobs:
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           HOROSCOPE_SKIP_COVER: ${{ vars.HOROSCOPE_SKIP_COVER }}
           HOROSCOPE_POST_FOOTER: ${{ vars.HOROSCOPE_POST_FOOTER }}
-          HOROSCOPE_TZ: ${{ vars.HOROSCOPE_TZ }}
+          HOROSCOPE_TZ: Europe/Kyiv
           HOROSCOPE_ENFORCE_TIME_GATE: ${{ github.event_name == 'schedule' && '1' || '0' }}
           HOROSCOPE_TARGET_HOUR: "10"
-          HOROSCOPE_TARGET_MINUTE: "0"
-          HOROSCOPE_POST_WINDOW_MINUTES: "25"
+          HOROSCOPE_TARGET_MINUTE: "45"
+          HOROSCOPE_POST_WINDOW_MINUTES: "20"
           HOROSCOPE_STATE_PATH: .state/posted_dates.txt
           HOROSCOPE_POSTED_FLAG_PATH: .state/posted.flag
         run: python scripts/publish_horoscope.py
