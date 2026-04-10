@@ -2,9 +2,8 @@
 
 on:
   schedule:
-    # Two UTC slots cover Kyiv DST shifts; Python gate posts at local target time.
-    - cron: "0 9 * * *"
-    - cron: "0 10 * * *"
+    # Temporary live check: one scheduled run near current Kyiv time.
+    - cron: "20 10 * * *"
   workflow_dispatch:
 
 jobs:
@@ -48,9 +47,9 @@ jobs:
           HOROSCOPE_POST_FOOTER: ${{ vars.HOROSCOPE_POST_FOOTER }}
           HOROSCOPE_TZ: Europe/Kyiv
           HOROSCOPE_ENFORCE_TIME_GATE: ${{ github.event_name == 'schedule' && '1' || '0' }}
-          HOROSCOPE_TARGET_HOUR: "12"
-          HOROSCOPE_TARGET_MINUTE: "0"
-          HOROSCOPE_POST_WINDOW_MINUTES: "70"
+          HOROSCOPE_TARGET_HOUR: "13"
+          HOROSCOPE_TARGET_MINUTE: "20"
+          HOROSCOPE_POST_WINDOW_MINUTES: "40"
           HOROSCOPE_STATE_PATH: .state/posted_dates.txt
           HOROSCOPE_POSTED_FLAG_PATH: .state/posted.flag
         run: python scripts/publish_horoscope.py
