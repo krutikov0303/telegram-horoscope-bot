@@ -316,37 +316,42 @@ def main() -> int:
         )
         return 2
 
-    enforce_time_gate = _is_truthy(os.environ.get("HOROSCOPE_ENFORCE_TIME_GATE"))
-    target_hour = int((os.environ.get("HOROSCOPE_TARGET_HOUR") or "8").strip())
-    target_minute = int((os.environ.get("HOROSCOPE_TARGET_MINUTE") or "27").strip())
-    post_window_minutes = int((os.environ.get("HOROSCOPE_POST_WINDOW_MINUTES") or "10").strip())
-
     now_local = _now_in_posts_tz()
     today_local = now_local.date()
-    target_local = now_local.replace(
-        hour=target_hour,
-        minute=target_minute,
-        second=0,
-        microsecond=0,
-    )
-    window_end = target_local + timedelta(minutes=post_window_minutes)
+    today_key = today_local.isoformat()
 
     state_path = Path((os.environ.get("HOROSCOPE_STATE_PATH") or ".state/posted_dates.txt").strip())
     posted_dates = _load_posted_dates(state_path)
-    today_key = today_local.isoformat()
 
-    if enforce_time_gate and not (target_local <= now_local < window_end):
-        print(
-            (
-                f"SKIP: now={now_local.strftime('%Y-%m-%d %H:%M:%S %Z')}, "
-                f"target={target_local.strftime('%H:%M')}, window={post_window_minutes}m"
-            )
-        )
-        return 0
-
-    if enforce_time_gate and today_key in posted_dates:
+    # GitHub schedule може запізнитись на години — не відсікаємо вузьким вікном.
+    # Для schedule: один пост на календарний день (Kyiv), дубль блокується станом.
+    event_name = (os.environ.get("GITHUB_EVENT_NAME") or "").strip()
+    force_post = _is_truthy(os.environ.get("HOROSCOPE_FORCE_POST"))
+    if event_name == "schedule" and not force_post and today_key in posted_dates:
         print(f"SKIP: already posted for {today_key}")
         return 0
+
+    # Опційно: жорстке вікно часу (зазвичай вимкнено для надійності schedule).
+    enforce_time_gate = _is_truthy(os.environ.get("HOROSCOPE_ENFORCE_TIME_GATE"))
+    if enforce_time_gate:
+        target_hour = int((os.environ.get("HOROSCOPE_TARGET_HOUR") or "8").strip())
+        target_minute = int((os.environ.get("HOROSCOPE_TARGET_MINUTE") or "0").strip())
+        post_window_minutes = int((os.environ.get("HOROSCOPE_POST_WINDOW_MINUTES") or "60").strip())
+        target_local = now_local.replace(
+            hour=target_hour,
+            minute=target_minute,
+            second=0,
+            microsecond=0,
+        )
+        window_end = target_local + timedelta(minutes=post_window_minutes)
+        if not (target_local <= now_local < window_end):
+            print(
+                (
+                    f"SKIP: now={now_local.strftime('%Y-%m-%d %H:%M:%S %Z')}, "
+                    f"target={target_local.strftime('%H:%M')}, window={post_window_minutes}m"
+                )
+            )
+            return 0
 
     last_err: Exception | None = None
     for attempt in range(1, MAX_RETRIES + 1):

@@ -2,8 +2,10 @@ name: Daily horoscope v2
 
 on:
   schedule:
-    # Temporary live check today: should hit around 14:20 Kyiv.
-    - cron: "20 11 * * *"
+    # 08:00 Kyiv ≈ 05:00 UTC (summer UTC+3) or 06:00 UTC (winter UTC+2).
+    # Два слоти на день: перший успішний запуск публікує, другий — SKIP (вже є в .state).
+    - cron: "0 5 * * *"
+    - cron: "0 6 * * *"
   workflow_dispatch:
 
 jobs:
@@ -37,6 +39,7 @@ jobs:
 
       - name: Publish
         env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -46,10 +49,8 @@ jobs:
           HOROSCOPE_COVER_STYLE: ${{ vars.HOROSCOPE_COVER_STYLE }}
           HOROSCOPE_POST_FOOTER: ${{ vars.HOROSCOPE_POST_FOOTER }}
           HOROSCOPE_TZ: Europe/Kyiv
-          HOROSCOPE_ENFORCE_TIME_GATE: ${{ github.event_name == 'schedule' && '1' || '0' }}
-          HOROSCOPE_TARGET_HOUR: "14"
-          HOROSCOPE_TARGET_MINUTE: "20"
-          HOROSCOPE_POST_WINDOW_MINUTES: "40"
+          # Не використовуємо вузьке вікно — GitHub schedule часто запізнюється.
+          HOROSCOPE_ENFORCE_TIME_GATE: "0"
           HOROSCOPE_STATE_PATH: .state/posted_dates.txt
           HOROSCOPE_POSTED_FLAG_PATH: .state/posted.flag
         run: python scripts/publish_horoscope.py
