@@ -2,8 +2,8 @@
 
 on:
   schedule:
-    # Run often; exact 08:27 Europe/Kyiv gating is enforced in Python.
-    - cron: "*/10 * * * *"
+    # Run often; exact Kyiv-time gating is enforced in Python.
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -47,8 +47,8 @@ jobs:
           HOROSCOPE_TZ: ${{ vars.HOROSCOPE_TZ }}
           HOROSCOPE_ENFORCE_TIME_GATE: ${{ github.event_name == 'schedule' && '1' || '0' }}
           HOROSCOPE_TARGET_HOUR: "8"
-          HOROSCOPE_TARGET_MINUTE: "27"
-          HOROSCOPE_POST_WINDOW_MINUTES: "10"
+          HOROSCOPE_TARGET_MINUTE: "0"
+          HOROSCOPE_POST_WINDOW_MINUTES: "25"
           HOROSCOPE_STATE_PATH: .state/posted_dates.txt
           HOROSCOPE_POSTED_FLAG_PATH: .state/posted.flag
         run: python scripts/publish_horoscope.py
