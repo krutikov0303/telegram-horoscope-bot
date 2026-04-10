@@ -2,10 +2,10 @@ name: Daily horoscope v2
 
 on:
   schedule:
-    # 08:00 Kyiv ≈ 05:00 UTC (summer UTC+3) or 06:00 UTC (winter UTC+2).
-    # Два слоти на день: перший успішний запуск публікує, другий — SKIP (вже є в .state).
-    - cron: "0 5 * * *"
-    - cron: "0 6 * * *"
+    # Тимчасово: 16:00 Kyiv ≈ 13:00 UTC (літо UTC+3) або 14:00 UTC (зима UTC+2).
+    # Після перевірки повернути на 08:00 (05:00 / 06:00 UTC).
+    - cron: "0 13 * * *"
+    - cron: "0 14 * * *"
   workflow_dispatch:
 
 jobs:
