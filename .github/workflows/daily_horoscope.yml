@@ -44,6 +44,7 @@ jobs:
           HOROSCOPE_LANG: ${{ vars.HOROSCOPE_LANG }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           HOROSCOPE_SKIP_COVER: ${{ vars.HOROSCOPE_SKIP_COVER }}
+          HOROSCOPE_COVER_STYLE: ${{ vars.HOROSCOPE_COVER_STYLE }}
           HOROSCOPE_POST_FOOTER: ${{ vars.HOROSCOPE_POST_FOOTER }}
           HOROSCOPE_TZ: Europe/Kyiv
           HOROSCOPE_ENFORCE_TIME_GATE: ${{ github.event_name == 'schedule' && '1' || '0' }}
